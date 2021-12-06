@@ -1,0 +1,9 @@
+@base_url=http://localhost:8081
+
+POST {{base_url}}/todos
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2Mzg3NjA5NjR9.zaxofl9hE-QRYAaA6_nZSFKCG3gOSlhjVg0q4aFx4XU
+
+{
+	"text":"test 2"
+}

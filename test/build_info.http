@@ -1,0 +1,4 @@
+@base_url=http://localhost:8081
+
+GET {{base_url}}/x
+Content-Type: application/json
