@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
@@ -20,7 +22,13 @@ import (
 )
 
 func main() {
-	err := godotenv.Load("local.env")
+	_, err := os.Create("/tmp/live")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.Remove("/tmp/live")
+
+	err = godotenv.Load("local.env")
 	if err != nil {
 		log.Printf("Please consider environment variable %s", err)
 	}
@@ -41,17 +49,23 @@ func main() {
 	protected := r.Group("", auth.Protect([]byte(os.Getenv("SIGN"))))
 
 	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
 	})
 
+	r.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
 	r.GET("/x", func(c *gin.Context) {
-		c.JSON(200, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"buildCommit": buildCommit,
 			"buildTime":   buildTime,
 		})
 	})
+
+	r.GET("limitz", limitedHandler)
 
 	r.GET("/tokenz", auth.AccessToken(os.Getenv("SIGN")))
 
@@ -85,5 +99,14 @@ func main() {
 	if err := s.Shutdown(timeoutCtx); err != nil {
 		fmt.Println(err)
 	}
+}
 
+var limiter = rate.NewLimiter(5, 5)
+
+func limitedHandler(c *gin.Context) {
+	if !limiter.Allow() {
+		c.AbortWithStatus(http.StatusTooManyRequests)
+		return
+	}
+	c.Status(http.StatusOK)
 }
