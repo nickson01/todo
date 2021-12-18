@@ -38,7 +38,7 @@ func main() {
 		buildTime   = time.Now().String()
 	)
 
-	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(os.Getenv("DB_CONN")), &gorm.Config{})
 	if err != nil {
 		panic("Fail to connect DB")
 	}
@@ -47,6 +47,7 @@ func main() {
 
 	r := gin.Default()
 	protected := r.Group("", auth.Protect([]byte(os.Getenv("SIGN"))))
+	log.Println(os.Getenv("SIGN"))
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
