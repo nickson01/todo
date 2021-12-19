@@ -12,9 +12,10 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"github.com/nickson01/todo/auth"
@@ -38,7 +39,7 @@ func main() {
 		buildTime   = time.Now().String()
 	)
 
-	db, err := gorm.Open(sqlite.Open(os.Getenv("DB_CONN")), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(os.Getenv("DB_CONN")), &gorm.Config{})
 	if err != nil {
 		panic("Fail to connect DB")
 	}
@@ -46,14 +47,23 @@ func main() {
 	db.AutoMigrate(&todo.Todo{})
 
 	r := gin.Default()
-	protected := r.Group("", auth.Protect([]byte(os.Getenv("SIGN"))))
-	log.Println(os.Getenv("SIGN"))
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{
+		"http://localhost:8080",
+	}
+	config.AllowHeaders = []string{
+		"Origin",
+		"Authorization",
+		"TransactionID",
+	}
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
 	})
+
+	r.Use(cors.New(config))
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.Status(http.StatusOK)
@@ -70,8 +80,13 @@ func main() {
 
 	r.GET("/tokenz", auth.AccessToken(os.Getenv("SIGN")))
 
+	protected := r.Group("", auth.Protect([]byte(os.Getenv("SIGN"))))
+	log.Println(os.Getenv("SIGN"))
+
 	todoHandler := todo.NewTodoHandler(db)
 	protected.POST("/todos", todoHandler.NewtTask)
+	protected.GET("/todos", todoHandler.List)
+	protected.DELETE("/todos/:id", todoHandler.Remove)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
